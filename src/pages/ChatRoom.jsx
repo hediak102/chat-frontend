@@ -49,7 +49,8 @@ function ChatRoom() {
 
   const connectWebSocket = () => {
     const token = localStorage.getItem('access_token')
-    const ws = new WebSocket(`ws://127.0.0.1:8000/ws/${roomId}?token=${token}`)
+    const wsBaseUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/^http/, 'ws')
+    const ws = new WebSocket(`${wsBaseUrl}/ws/${roomId}?token=${token}`)
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data)
