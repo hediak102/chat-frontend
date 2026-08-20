@@ -17,37 +17,7 @@ function ChatRoom() {
 
   useEffect(() => {
     loadHistory()
-    connectWebSocket()
 
-    return () => {
-      wsRef.current?.close()
-      clearTimeout(typingTimeoutRef.current)
-    }
-  }, [roomId])
-
-  // Fait défiler vers le bas à chaque nouveau message
-  useEffect(() => {
-    if (chatWindowRef.current) {
-      chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight
-    }
-  }, [messages])
-
-  const loadHistory = async () => {
-    try {
-      const response = await api.get(`/rooms/${roomId}/messages`)
-      setMessages(
-        response.data.map((m) => ({
-          type: 'message',
-          username: m.username,
-          content: m.content,
-        }))
-      )
-    } catch (err) {
-      console.error("Impossible de charger l'historique", err)
-    }
-  }
-
-  const connectWebSocket = () => {
     const token = localStorage.getItem('access_token')
     const wsBaseUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/^http/, 'ws')
     const ws = new WebSocket(`${wsBaseUrl}/ws/${roomId}?token=${token}`)
@@ -72,6 +42,37 @@ function ChatRoom() {
     }
 
     wsRef.current = ws
+
+    return () => {
+      console.log('Fermeture WS, readyState avant close:', ws.readyState)
+      // Ferme précisément CETTE instance créée par cette exécution de l'effet,
+      // pas wsRef.current qui pourrait déjà pointer vers une connexion plus récente
+      // (important avec React StrictMode, qui monte/démonte les effets deux fois en dev)
+      ws.close()
+      clearTimeout(typingTimeoutRef.current)
+    }
+  }, [roomId])
+
+  // Fait défiler vers le bas à chaque nouveau message
+  useEffect(() => {
+    if (chatWindowRef.current) {
+      chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight
+    }
+  }, [messages])
+
+  const loadHistory = async () => {
+    try {
+      const response = await api.get(`/rooms/${roomId}/messages`)
+      setMessages(
+        response.data.map((m) => ({
+          type: 'message',
+          username: m.username,
+          content: m.content,
+        }))
+      )
+    } catch (err) {
+      console.error("Impossible de charger l'historique", err)
+    }
   }
 
   const sendMessage = (e) => {
