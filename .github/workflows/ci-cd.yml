@@ -26,7 +26,7 @@ jobs:
 
       - name: Build App
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
         run: npm run build
 
   deploy:
@@ -38,4 +38,4 @@ jobs:
     steps:
       - name: Trigger Render Deploy Hook
         run: |
-          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+          curl -i -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
