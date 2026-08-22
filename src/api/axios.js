@@ -41,4 +41,15 @@ api.interceptors.response.use(
   }
 )
 
+// --- Fonctions d'appel API ---
+
+export const fetchRoomMessages = async (roomId, limit = 20, cursor = null) => {
+  const params = { limit }
+  if (cursor) {
+    params.cursor = cursor
+  }
+  const response = await api.get(`/rooms/${roomId}/messages`, { params })
+  return response.data // Renvoie { messages, next_cursor, has_more }
+}
+
 export default api

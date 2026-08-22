@@ -10,14 +10,44 @@ function ChatRoom() {
   const [onlineUsers, setOnlineUsers] = useState([])
   const [typingUser, setTypingUser] = useState(null)
   const [input, setInput] = useState('')
+  const [currentUser, setCurrentUser] = useState('')
+
+  // États pour la pagination
+  const [nextCursor, setNextCursor] = useState(null)
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   const wsRef = useRef(null)
   const typingTimeoutRef = useRef(null)
   const chatWindowRef = useRef(null)
+  const isInitialLoadRef = useRef(true)
+
+  // Récupérer le nom d'utilisateur connecté au chargement
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await api.get('/me') // Ajuste la route profil/me selon ton API
+        setCurrentUser(response.data.username)
+      } catch (err) {
+        console.error("Impossible de récupérer l'utilisateur", err)
+      }
+    }
+    fetchCurrentUser()
+  }, [])
 
   useEffect(() => {
-    loadHistory()
+    // 1. Réinitialisation des états
+    setOnlineUsers([])
+    setMessages([])
+    setNextCursor(null)
+    setHasMore(true)
+    isInitialLoadRef.current = true
 
+    // 2. Chargement initial HTTP
+    loadHistory()
+    fetchOnlineUsers()
+
+    // 3. Connexion WebSocket
     const token = localStorage.getItem('access_token')
     const wsBaseUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/^http/, 'ws')
     const ws = new WebSocket(`${wsBaseUrl}/ws/${roomId}?token=${token}`)
@@ -26,10 +56,23 @@ function ChatRoom() {
       const data = JSON.parse(event.data)
 
       if (data.type === 'message') {
-        setMessages((prev) => [...prev, data])
+        setMessages((prev) => {
+          // Si le message possède un tempId et existe déjà dans le state, on le remplace
+          if (data.tempId) {
+            const existingIndex = prev.findIndex((m) => m.tempId === data.tempId)
+            if (existingIndex !== -1) {
+              const updated = [...prev]
+              updated[existingIndex] = { ...data, pending: false }
+              return updated
+            }
+          }
+          return [...prev, data]
+        })
       } else if (data.type === 'user_joined' || data.type === 'user_left') {
         setMessages((prev) => [...prev, data])
-        setOnlineUsers(data.online_users)
+        if (Array.isArray(data.online_users)) {
+          setOnlineUsers(data.online_users)
+        }
       } else if (data.type === 'typing') {
         setTypingUser(data.username)
         clearTimeout(typingTimeoutRef.current)
@@ -44,42 +87,125 @@ function ChatRoom() {
     wsRef.current = ws
 
     return () => {
-      console.log('Fermeture WS, readyState avant close:', ws.readyState)
-      // Ferme précisément CETTE instance créée par cette exécution de l'effet,
-      // pas wsRef.current qui pourrait déjà pointer vers une connexion plus récente
-      // (important avec React StrictMode, qui monte/démonte les effets deux fois en dev)
       ws.close()
       clearTimeout(typingTimeoutRef.current)
+      setOnlineUsers([])
     }
   }, [roomId])
 
-  // Fait défiler vers le bas à chaque nouveau message
+  // Scroll automatique vers le bas à l'arrivée d'un message
   useEffect(() => {
-    if (chatWindowRef.current) {
+    if (chatWindowRef.current && isInitialLoadRef.current) {
       chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight
     }
   }, [messages])
 
   const loadHistory = async () => {
     try {
-      const response = await api.get(`/rooms/${roomId}/messages`)
-      setMessages(
-        response.data.map((m) => ({
-          type: 'message',
-          username: m.username,
-          content: m.content,
-        }))
-      )
+      const response = await api.get(`/rooms/${roomId}/messages?limit=20`)
+      const { messages: newMessages, next_cursor, has_more } = response.data
+
+      const formatted = newMessages.map((m) => ({
+        type: 'message',
+        username: m.username,
+        content: m.content,
+      }))
+
+      setMessages(formatted)
+      setNextCursor(next_cursor)
+      setHasMore(has_more)
+
+      requestAnimationFrame(() => {
+        if (chatWindowRef.current) {
+          chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight
+        }
+      })
     } catch (err) {
       console.error("Impossible de charger l'historique", err)
     }
   }
 
+  const loadMoreMessages = async () => {
+    if (!hasMore || loadingMore || !nextCursor) return
+
+    setLoadingMore(true)
+    isInitialLoadRef.current = false
+    const container = chatWindowRef.current
+    const previousScrollHeight = container.scrollHeight
+
+    try {
+      const response = await api.get(`/rooms/${roomId}/messages?limit=20&cursor=${nextCursor}`)
+      const { messages: oldMessages, next_cursor, has_more } = response.data
+
+      const formatted = oldMessages.map((m) => ({
+        type: 'message',
+        username: m.username,
+        content: m.content,
+      }))
+
+      setMessages((prev) => [...formatted, ...prev])
+      setNextCursor(next_cursor)
+      setHasMore(has_more)
+
+      requestAnimationFrame(() => {
+        if (container) {
+          container.scrollTop = container.scrollHeight - previousScrollHeight
+        }
+      })
+    } catch (err) {
+      console.error("Impossible de charger l'historique ancien", err)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  const handleScroll = () => {
+    if (chatWindowRef.current.scrollTop === 0 && hasMore && !loadingMore) {
+      loadMoreMessages()
+    }
+  }
+
+  const fetchOnlineUsers = async () => {
+    try {
+      const response = await api.get(`/rooms/${roomId}/online-users`)
+      setOnlineUsers(response.data)
+    } catch (err) {
+      console.error("Impossible de charger les utilisateurs en ligne", err)
+    }
+  }
+
+  // ENVOI OPTIMISTE DU MESSAGE
   const sendMessage = (e) => {
     e.preventDefault()
     if (!input.trim()) return
-    wsRef.current?.send(JSON.stringify({ type: 'message', content: input }))
+
+    const messageText = input
+    const tempId = crypto.randomUUID()
+    isInitialLoadRef.current = true
+
+    // 1. Mise à jour immédiate de l'interface graphique
+    setMessages((prev) => [
+      ...prev,
+      {
+        type: 'message',
+        username: currentUser || 'Moi',
+        content: messageText,
+        tempId,
+        pending: true,
+      },
+    ])
+
+    // 2. Réinitialisation de l'input sans attendre le réseau
     setInput('')
+
+    // 3. Envoi au serveur via WebSocket
+    wsRef.current?.send(
+      JSON.stringify({
+        type: 'message',
+        content: messageText,
+        tempId,
+      })
+    )
   }
 
   const handleTyping = (e) => {
@@ -94,9 +220,14 @@ function ChatRoom() {
         <h1>Salon #{roomId}</h1>
       </div>
 
-      <p className="online-users">En ligne: {onlineUsers.join(', ')}</p>
+      <p className="online-users">
+        En ligne: {onlineUsers.length > 0 ? onlineUsers.join(', ') : 'Aucun utilisateur'}
+      </p>
 
-      <div className="chat-window" ref={chatWindowRef}>
+      <div className="chat-window" ref={chatWindowRef} onScroll={handleScroll}>
+        {loadingMore && <p className="chat-system-message">Chargement des anciens messages...</p>}
+        {!hasMore && <p className="chat-system-message">Début de la discussion</p>}
+
         {messages.map((m, i) => {
           if (m.type === 'user_joined')
             return (
@@ -111,7 +242,7 @@ function ChatRoom() {
               </p>
             )
           return (
-            <p key={i} className="chat-message">
+            <p key={m.tempId || i} className="chat-message" style={{ opacity: m.pending ? 0.6 : 1 }}>
               <strong>{m.username}:</strong> {m.content}
             </p>
           )

@@ -1,16 +1,17 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 
 :root {
-  --bg: #10191b;
-  --surface: #17242a;
-  --surface-raised: #1d2e33;
-  --line: #2a3d42;
-  --signal: #f2a93c;
-  --signal-dim: #a87a35;
-  --online: #5fd3b8;
-  --text: #e7e2d3;
-  --text-muted: #6e7e80;
-  --danger: #e0654f;
+  --paper: #eaecef;
+  --paper-raised: #ffffff;
+  --ink: #1b212c;
+  --ink-soft: #626b79;
+  --ink-faint: #9aa2ac;
+  --rule: #d6d9de;
+  --rule-strong: #b9bec6;
+  --accent: #6e3358;
+  --accent-tint: #f1e4ec;
+  --positive: #35634b;
+  --danger: #8a3226;
 }
 
 * {
@@ -19,196 +20,213 @@
 
 body {
   margin: 0;
-  background-color: var(--bg);
-  background-image:
-    radial-gradient(circle at 15% 10%, rgba(242, 169, 60, 0.05), transparent 40%),
-    radial-gradient(circle at 85% 90%, rgba(95, 211, 184, 0.04), transparent 45%);
-  color: var(--text);
-  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 #root {
-  max-width: 640px;
+  max-width: 680px;
   margin: 0 auto;
-  padding: 3rem 1.25rem;
+  padding: 3rem 1.5rem 4rem;
 }
 
+/* ---------- Headings ---------- */
 h1 {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text);
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-weight: 600;
+  font-size: 1.65rem;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0 0 0.25rem;
 }
 
-h1::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--signal);
-  box-shadow: 0 0 8px var(--signal);
-  flex-shrink: 0;
+/* A quiet rule under every page title — the ledger's top edge */
+.chat-header,
+#root > h1 {
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 0.85rem;
+  margin-bottom: 1.25rem;
 }
 
 /* ---------- Forms (login, register, create room) ---------- */
 form {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.75rem;
   margin-bottom: 1.75rem;
-  background: var(--surface);
-  border: 1px solid var(--line);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
   border-radius: 3px;
-  padding: 1.5rem;
+  padding: 1.35rem 1.35rem 1.5rem;
   position: relative;
 }
 
 form::before {
   content: attr(data-label);
-  position: absolute;
-  top: -0.55rem;
-  left: 1rem;
-  background: var(--bg);
-  padding: 0 0.5rem;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-input {
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 2px;
-  padding: 0.7rem 0.8rem;
-  font-size: 0.95rem;
-  font-family: 'Inter', sans-serif;
-  color: var(--text);
-  outline: none;
-  transition: border-color 0.15s ease;
-}
-
-input::placeholder {
-  color: var(--text-muted);
-}
-
-input:focus {
-  border-color: var(--signal);
-}
-
-button {
-  padding: 0.7rem 1.1rem;
-  border: 1px solid var(--signal-dim);
-  border-radius: 2px;
-  background-color: transparent;
-  color: var(--signal);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.8rem;
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  color: var(--ink-faint);
+  margin-bottom: 0.35rem;
 }
 
-button:hover {
-  background-color: var(--signal);
-  color: var(--bg);
+input {
+  background: var(--paper);
+  border: 1px solid var(--rule-strong);
+  border-radius: 2px;
+  padding: 0.65rem 0.75rem;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.95rem;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
 }
 
-button:focus-visible,
-input:focus-visible {
-  outline: 2px solid var(--signal);
+input::placeholder {
+  color: var(--ink-faint);
+}
+
+input:focus {
+  border-color: var(--accent);
+  background: var(--paper-raised);
+}
+
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
+button {
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  background-color: var(--ink);
+  color: var(--paper-raised);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+  align-self: flex-start;
+}
+
+button:hover {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Secondary / back button — used in chat-header */
+.chat-header button {
+  background: none;
+  color: var(--ink-soft);
+  border: 1px solid var(--rule-strong);
+  padding: 0.4rem 0.7rem;
+  font-size: 0.78rem;
+}
+
+.chat-header button:hover {
+  background: var(--paper-raised);
+  color: var(--ink);
+  border-color: var(--ink-soft);
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+
 a {
-  color: var(--online);
+  color: var(--accent);
   text-decoration: none;
-  border-bottom: 1px dotted var(--online);
+  border-bottom: 1px solid var(--accent-tint);
 }
 
 a:hover {
-  opacity: 0.8;
+  border-bottom-color: var(--accent);
 }
 
 p {
   font-size: 0.9rem;
-  color: var(--text-muted);
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+p[style*="color: red"] {
+  color: var(--danger) !important;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.82rem;
+}
+
+p[style*="color: green"] {
+  color: var(--positive) !important;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.82rem;
 }
 
 /* ---------- Room list ---------- */
 ul {
   list-style: none;
   padding: 0;
+  margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
 }
 
 ul li {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 2px;
-  border-left: 3px solid var(--signal-dim);
+  border-bottom: 1px solid var(--rule);
+}
+
+ul li:first-child {
+  border-top: 1px solid var(--rule);
 }
 
 ul li button {
+  all: unset;
   width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  color: var(--text);
-  padding: 0.85rem 1rem;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.85rem;
-  letter-spacing: 0.03em;
-  text-transform: none;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  justify-content: space-between;
+  padding: 0.85rem 0.15rem;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.95rem;
+  color: var(--ink);
+  cursor: pointer;
 }
 
-ul li button::before {
-  content: '›';
-  color: var(--signal);
-  font-size: 1rem;
+ul li button::after {
+  content: '→';
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--ink-faint);
+  transition: transform 0.12s ease, color 0.12s ease;
 }
 
 ul li button:hover {
-  background-color: var(--surface-raised);
-  color: var(--signal);
+  color: var(--accent);
 }
 
-/* ---------- Chat room ---------- */
-.chat-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.35rem;
+ul li button:hover::after {
+  color: var(--accent);
+  transform: translateX(2px);
 }
 
-.chat-header button {
-  padding: 0.4rem 0.7rem;
-  font-size: 0.7rem;
-}
-
+/* ---------- Presence roster ---------- */
 .online-users {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  letter-spacing: 0.03em;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  margin-bottom: 1rem;
+  margin: 0 0 1.1rem;
 }
 
 .online-users::before {
@@ -216,28 +234,18 @@ ul li button:hover {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--online);
-  box-shadow: 0 0 6px var(--online);
-  animation: pulse 2s ease-in-out infinite;
+  background: var(--positive);
   flex-shrink: 0;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-
+/* ---------- Chat window: the ledger ---------- */
 .chat-window {
-  background: var(--surface);
-  border: 1px solid var(--line);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
   border-radius: 3px;
-  padding: 1rem;
+  padding: 0.25rem 1rem;
   height: 420px;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  margin-bottom: 0.6rem;
 }
 
 .chat-window::-webkit-scrollbar {
@@ -245,58 +253,91 @@ ul li button:hover {
 }
 
 .chat-window::-webkit-scrollbar-thumb {
-  background: var(--line);
+  background: var(--rule-strong);
   border-radius: 3px;
 }
 
+/* Each message is a ledger line: the timestamp/username sits in a hanging
+   margin (absolutely positioned, out of flow) so the message text itself
+   stays in normal block flow and wraps the ordinary way — word by word,
+   only breaking when the line is full. (A grid/flex column for bare text
+   is unreliable across browsers for this; hanging-indent is the robust
+   classic technique.) */
 .chat-message {
-  background: var(--bg);
-  border-left: 2px solid var(--signal-dim);
-  padding: 0.5rem 0.75rem;
-  border-radius: 0 3px 3px 0;
-  max-width: 80%;
-  align-self: flex-start;
-  font-size: 0.9rem;
-  line-height: 1.4;
+  position: relative;
   margin: 0;
+  padding: 0.6rem 0 0.6rem 4.75rem;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--ink);
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.chat-window .chat-message:last-child {
+  border-bottom: none;
 }
 
 .chat-message strong {
-  display: block;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--signal);
-  margin-bottom: 0.15rem;
+  position: absolute;
+  left: 0;
+  top: 0.62rem;
+  width: 4rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--accent);
+}
+
+/* Vertical rule between the label margin and the message text */
+.chat-message::before {
+  content: '';
+  position: absolute;
+  left: 4.25rem;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--rule);
 }
 
 .chat-system-message {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  color: var(--ink-faint);
   text-align: center;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  margin: 0.2rem 0;
+  padding: 0.45rem 0;
+  margin: 0;
+  border-bottom: 1px dashed var(--rule);
 }
 
+.chat-window .chat-system-message:last-child {
+  border-bottom: none;
+}
+
+/* ---------- Typing indicator ---------- */
 .typing-indicator {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
-  color: var(--signal);
-  min-height: 1.2rem;
-  margin: 0 0 0.6rem 0;
-  opacity: 0.85;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.74rem;
+  color: var(--accent);
+  min-height: 1.3rem;
+  margin: 0.55rem 0 0.25rem;
 }
 
+.typing-indicator:empty::before {
+  content: '\00a0';
+}
+
+/* ---------- Message input ---------- */
 .chat-input-form {
   display: flex;
   flex-direction: row;
   gap: 0.5rem;
-  margin-bottom: 0;
-  padding: 0.6rem;
-  background: transparent;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  background: none;
   border: none;
 }
 
@@ -308,15 +349,6 @@ ul li button:hover {
   flex: 1;
 }
 
-/* ---------- Status text ---------- */
-p[style*="color: red"] {
-  color: var(--danger) !important;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.8rem;
-}
-
-p[style*="color: green"] {
-  color: var(--online) !important;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.8rem;
+.chat-input-form button {
+  align-self: stretch;
 }
