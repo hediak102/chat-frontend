@@ -26,7 +26,7 @@ function ChatRoom() {
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
-        const response = await api.get('/me') // Ajuste la route profil/me selon ton API
+        const response = await api.get('/me')
         setCurrentUser(response.data.username)
       } catch (err) {
         console.error("Impossible de récupérer l'utilisateur", err)
@@ -36,18 +36,15 @@ function ChatRoom() {
   }, [])
 
   useEffect(() => {
-    // 1. Réinitialisation des états
     setOnlineUsers([])
     setMessages([])
     setNextCursor(null)
     setHasMore(true)
     isInitialLoadRef.current = true
 
-    // 2. Chargement initial HTTP
     loadHistory()
     fetchOnlineUsers()
 
-    // 3. Connexion WebSocket
     const token = localStorage.getItem('access_token')
     const wsBaseUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/^http/, 'ws')
     const ws = new WebSocket(`${wsBaseUrl}/ws/${roomId}?token=${token}`)
@@ -57,7 +54,6 @@ function ChatRoom() {
 
       if (data.type === 'message') {
         setMessages((prev) => {
-          // Si le message possède un tempId et existe déjà dans le state, on le remplace
           if (data.tempId) {
             const existingIndex = prev.findIndex((m) => m.tempId === data.tempId)
             if (existingIndex !== -1) {
@@ -77,6 +73,9 @@ function ChatRoom() {
         setTypingUser(data.username)
         clearTimeout(typingTimeoutRef.current)
         typingTimeoutRef.current = setTimeout(() => setTypingUser(null), 2000)
+      } else if (data.type === 'stop_typing') {
+        clearTimeout(typingTimeoutRef.current)
+        setTypingUser((prev) => (prev === data.username ? null : prev))
       }
     }
 
@@ -93,7 +92,6 @@ function ChatRoom() {
     }
   }, [roomId])
 
-  // Scroll automatique vers le bas à l'arrivée d'un message
   useEffect(() => {
     if (chatWindowRef.current && isInitialLoadRef.current) {
       chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight
@@ -174,7 +172,6 @@ function ChatRoom() {
     }
   }
 
-  // ENVOI OPTIMISTE DU MESSAGE
   const sendMessage = (e) => {
     e.preventDefault()
     if (!input.trim()) return
@@ -183,7 +180,7 @@ function ChatRoom() {
     const tempId = crypto.randomUUID()
     isInitialLoadRef.current = true
 
-    // 1. Mise à jour immédiate de l'interface graphique
+    // 1. Ajout optimiste immédiat
     setMessages((prev) => [
       ...prev,
       {
@@ -195,15 +192,21 @@ function ChatRoom() {
       },
     ])
 
-    // 2. Réinitialisation de l'input sans attendre le réseau
     setInput('')
 
-    // 3. Envoi au serveur via WebSocket
+    // 2. Envoi du message via WebSocket
     wsRef.current?.send(
       JSON.stringify({
         type: 'message',
         content: messageText,
         tempId,
+      })
+    )
+
+    // 3. Notification explicite d'arrêt de saisie
+    wsRef.current?.send(
+      JSON.stringify({
+        type: 'stop_typing',
       })
     )
   }
@@ -242,7 +245,11 @@ function ChatRoom() {
               </p>
             )
           return (
-            <p key={m.tempId || i} className="chat-message" style={{ opacity: m.pending ? 0.6 : 1 }}>
+            <p
+              key={m.tempId || i}
+              className="chat-message"
+              style={{ opacity: m.pending ? 0.6 : 1 }}
+            >
               <strong>{m.username}:</strong> {m.content}
             </p>
           )
