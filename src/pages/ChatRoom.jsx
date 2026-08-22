@@ -43,50 +43,86 @@ function ChatRoom() {
     isInitialLoadRef.current = true
 
     loadHistory()
-    fetchOnlineUsers()
+    // La liste des utilisateurs en ligne arrive via le WebSocket (user_joined/user_left),
+    // plus besoin d'appel REST ici.
 
-    const token = localStorage.getItem('access_token')
-    const wsBaseUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/^http/, 'ws')
-    const ws = new WebSocket(`${wsBaseUrl}/ws/${roomId}?token=${token}`)
+    let isUnmounted = false
+    let reconnectTimeout = null
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data)
+    const connectWebSocket = () => {
+      const token = localStorage.getItem('access_token')
+      const wsBaseUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/^http/, 'ws')
+      const ws = new WebSocket(`${wsBaseUrl}/ws/${roomId}?token=${token}`)
 
-      if (data.type === 'message') {
-        setMessages((prev) => {
-          if (data.tempId) {
-            const existingIndex = prev.findIndex((m) => m.tempId === data.tempId)
-            if (existingIndex !== -1) {
-              const updated = [...prev]
-              updated[existingIndex] = { ...data, pending: false }
-              return updated
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data)
+
+        if (data.type === 'message') {
+          setMessages((prev) => {
+            if (data.tempId) {
+              const existingIndex = prev.findIndex((m) => m.tempId === data.tempId)
+              if (existingIndex !== -1) {
+                const updated = [...prev]
+                updated[existingIndex] = { ...data, pending: false }
+                return updated
+              }
             }
+            return [...prev, data]
+          })
+        } else if (data.type === 'user_joined' || data.type === 'user_left') {
+          setMessages((prev) => [...prev, data])
+          if (Array.isArray(data.online_users)) {
+            setOnlineUsers(data.online_users)
           }
-          return [...prev, data]
-        })
-      } else if (data.type === 'user_joined' || data.type === 'user_left') {
-        setMessages((prev) => [...prev, data])
-        if (Array.isArray(data.online_users)) {
-          setOnlineUsers(data.online_users)
+        } else if (data.type === 'typing') {
+          setTypingUser(data.username)
+          clearTimeout(typingTimeoutRef.current)
+          typingTimeoutRef.current = setTimeout(() => setTypingUser(null), 2000)
+        } else if (data.type === 'stop_typing') {
+          clearTimeout(typingTimeoutRef.current)
+          setTypingUser((prev) => (prev === data.username ? null : prev))
+        } else if (data.type === 'error') {
+          // Le backend a rejeté le dernier message envoyé (ex: rate limiting).
+          // On marque le dernier message optimiste "pending" comme échoué au lieu
+          // de le laisser grisé indéfiniment.
+          setMessages((prev) => {
+            const lastPendingIndex = [...prev].reverse().findIndex((m) => m.pending)
+            if (lastPendingIndex === -1) return prev
+            const index = prev.length - 1 - lastPendingIndex
+            const updated = [...prev]
+            updated[index] = { ...updated[index], pending: false, failed: true }
+            return updated
+          })
+        } else if (data.type === 'ping') {
+          // Heartbeat serveur : on répond immédiatement pour signaler que la
+          // connexion est toujours vivante côté client.
+          ws.send(JSON.stringify({ type: 'pong' }))
         }
-      } else if (data.type === 'typing') {
-        setTypingUser(data.username)
-        clearTimeout(typingTimeoutRef.current)
-        typingTimeoutRef.current = setTimeout(() => setTypingUser(null), 2000)
-      } else if (data.type === 'stop_typing') {
-        clearTimeout(typingTimeoutRef.current)
-        setTypingUser((prev) => (prev === data.username ? null : prev))
       }
+
+      ws.onclose = () => {
+        console.log('Connexion WebSocket fermée')
+        // La connexion est morte : on vide l'état de présence/frappe pour ne pas
+        // afficher des données périmées, que la coupure soit volontaire ou non.
+        setOnlineUsers([])
+        setTypingUser(null)
+
+        // Si le composant est toujours monté (donc pas un changement de room ou
+        // un démontage volontaire), on tente une reconnexion automatique.
+        if (!isUnmounted) {
+          reconnectTimeout = setTimeout(connectWebSocket, 3000)
+        }
+      }
+
+      wsRef.current = ws
     }
 
-    ws.onclose = () => {
-      console.log('Connexion WebSocket fermée')
-    }
-
-    wsRef.current = ws
+    connectWebSocket()
 
     return () => {
-      ws.close()
+      isUnmounted = true
+      clearTimeout(reconnectTimeout)
+      wsRef.current?.close()
       clearTimeout(typingTimeoutRef.current)
       setOnlineUsers([])
     }
@@ -163,18 +199,13 @@ function ChatRoom() {
     }
   }
 
-  const fetchOnlineUsers = async () => {
-    try {
-      const response = await api.get(`/rooms/${roomId}/online-users`)
-      setOnlineUsers(response.data)
-    } catch (err) {
-      console.error("Impossible de charger les utilisateurs en ligne", err)
-    }
-  }
-
   const sendMessage = (e) => {
     e.preventDefault()
     if (!input.trim()) return
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      console.warn('WebSocket non connecté, message non envoyé')
+      return
+    }
 
     const messageText = input
     const tempId = crypto.randomUUID()
@@ -195,7 +226,7 @@ function ChatRoom() {
     setInput('')
 
     // 2. Envoi du message via WebSocket
-    wsRef.current?.send(
+    wsRef.current.send(
       JSON.stringify({
         type: 'message',
         content: messageText,
@@ -204,7 +235,7 @@ function ChatRoom() {
     )
 
     // 3. Notification explicite d'arrêt de saisie
-    wsRef.current?.send(
+    wsRef.current.send(
       JSON.stringify({
         type: 'stop_typing',
       })
@@ -213,7 +244,9 @@ function ChatRoom() {
 
   const handleTyping = (e) => {
     setInput(e.target.value)
-    wsRef.current?.send(JSON.stringify({ type: 'typing' }))
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'typing' }))
+    }
   }
 
   return (
@@ -248,9 +281,14 @@ function ChatRoom() {
             <p
               key={m.tempId || i}
               className="chat-message"
-              style={{ opacity: m.pending ? 0.6 : 1 }}
+              style={{ opacity: m.pending ? 0.6 : m.failed ? 0.5 : 1 }}
             >
               <strong>{m.username}:</strong> {m.content}
+              {m.failed && (
+                <span style={{ color: 'red', marginLeft: 6 }}>
+                  ⚠️ non envoyé (trop rapide)
+                </span>
+              )}
             </p>
           )
         })}
@@ -274,4 +312,4 @@ function ChatRoom() {
   )
 }
 
-export default ChatRoom
+export default ChatRoom 
