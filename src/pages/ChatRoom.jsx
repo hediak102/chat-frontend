@@ -51,14 +51,14 @@ function ChatRoom() {
 
     const connectWebSocket = () => {
       const token = localStorage.getItem('access_token')
-      const wsBaseUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/^http/, 'ws')
+      const wsBaseUrl = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/^https/, 'wss').replace(/^http/, 'ws')
       const ws = new WebSocket(`${wsBaseUrl}/ws/${roomId}?token=${token}`)
 
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data)
 
         if (data.type === 'message') {
-          setMessages((prev) => {
+            setMessages((prev) => {
             if (data.tempId) {
               const existingIndex = prev.findIndex((m) => m.tempId === data.tempId)
               if (existingIndex !== -1) {
