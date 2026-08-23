@@ -1,6 +1,6 @@
 # Realtime Chat — Frontend
 
-A React frontend for the Realtime Chat API, built with Vite. Handles authentication, room browsing, and a live chat interface with presence, typing indicators, and message history.
+A React frontend for the Realtime Chat API, built with Vite. Handles authentication, room browsing, and a live chat interface with presence, typing indicators, optimistic message sending, and cursor-based pagination for scrolling into older history.
 
 **Live app:** https://<your-frontend-url>.onrender.com
 **Backend API:** https://<your-backend-url>.onrender.com/docs
@@ -11,10 +11,11 @@ A React frontend for the Realtime Chat API, built with Vite. Handles authenticat
 - Protected routes — redirects to `/login` if not authenticated
 - Room list — browse existing rooms or create a new one
 - Live chat room:
-  - Loads message history via REST on join
+  - Loads the most recent message history via REST on join (cursor-based pagination)
   - Connects to the room's WebSocket for real-time updates
   - Shows who's currently online in the room
   - Shows a typing indicator when someone else is typing
+  - **Optimistic sending** — a sent message appears instantly, before the server confirms it, then gets reconciled with the server-confirmed version (matched via a client-generated `tempId`) — no perceptible delay even for long messages
   - Auto-scrolls to the latest message
   - Cleanly closes the WebSocket connection when leaving the room
 
@@ -88,14 +89,15 @@ Deployed on Render as a Static Site.
 - **Publish Directory:** `dist`
 - **Environment variable required:** `VITE_API_URL` (set to the deployed backend URL, e.g. `https://realtime-ws-xxxx.onrender.com`)
 
-Note: Vite environment variables are baked in at build time, not read at runtime — changing `VITE_API_URL` requires a redeploy (or Manual Deploy) to take effect.
+Note: Vite environment variables are baked in at build time, not read at runtime — changing `VITE_API_URL` requires a redeploy (Manual Deploy) to take effect.
 
-After deploying, make sure the frontend's URL is added to the backend's CORS `origins` list, and that the backend's Start Command includes `alembic upgrade head` so the database schema stays current.
+After deploying, make sure the frontend's URL is added to the backend's CORS `origins` list.
 
 ## How the chat connection works
 
-1. On joining a room, the app loads message history with `GET /rooms/{id}/messages`
+1. On joining a room, the app loads the most recent page of message history with `GET /rooms/{id}/messages?limit=20` (cursor-based — scrolling up loads older messages via the `next_cursor` returned in the response, without skipping or duplicating messages even if new ones arrive concurrently)
 2. It then opens a WebSocket to `wss://.../ws/{room_id}?token={access_token}` — the JWT is passed as a query parameter, since WebSocket connections can't carry custom headers
 3. Incoming messages are JSON objects with a `type` field (`message`, `typing`, `user_joined`, `user_left`), so the UI knows how to render each one
-4. Typing a message sends a `{"type": "typing"}` event on every keystroke; the receiving side shows "X is typing..." and clears it automatically after ~2 seconds of silence
-5. Leaving the page closes the WebSocket connection cleanly via a `useEffect` cleanup function
+4. **Sending a message:** the message is rendered immediately (optimistic update) with a client-generated `tempId`, then sent over the WebSocket. When the server-confirmed version arrives back (broadcast to everyone including the sender), it's matched by `tempId` and swaps in for the optimistic entry — so there's no visible round-trip delay, even for long messages
+5. Typing a message sends a `{"type": "typing"}` event on every keystroke; the receiving side shows "X is typing..." and clears it automatically after ~2 seconds of silence
+6. Leaving the page closes the WebSocket connection cleanly via a `useEffect` cleanup function
